@@ -1,0 +1,493 @@
+---
+title: "International Powerlifting"
+author: "Siri Hausland Folstad"
+date: "09/10/2019"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    math: katex
+---
+<div style="margin-bottom:100px;">
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+</div>
+This is a dataset from GitHub's Tidy Tuesday project - https://github.com/rfordatascience/tidytuesday/tree/master/data/2019/2019-10-08 - 
+aiming to allow researchers to practice doing R analyses. The data is a subset of 
+a larger dataset from https://openpowerlifting.org/data and was shared by Nicole 
+Monhait (https://twitter.com/nrmonhait) to the Tidy Tuesday project.
+
+</div>
+
+I am planning to conducting an exploratory analysis, to see what relationships 
+I can discover within the data. This is merely an exploration and for me to practice
+my data analysis skills on a Wednesday morning. More analyses of hopefully greater 
+detail and impact will come later.
+
+</div>
+
+Within this dataset I will be looking at the effect of gender, age, bodyweight
+and equipment on the maximum top 3 number of squats that people do.
+
+</div>
+
+I will first import the data
+
+</div>
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ipf_lifts <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-10-08/ipf_lifts.csv")
+```
+\vspace{5mm}
+**I will use the following packages**: *tidyverse* (Wickham, 2017) - for data visualisation and wrangling;
+*visdat* (Tierney, 2017) - to check for missing data;
+*ggplot2* (Wickham, 2016) - to create colourful plots; 
+*car* (Fox & Weisberg, 2011) - to check for multicollinearity
+
+
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+library(tidyverse) 
+library(visdat)
+library(ggplot2)
+library(car) 
+```
+
+\vspace{5mm}
+Before doing an analysis, I will check the amount of missing data there is 
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+vis_miss(ipf_lifts)
+```
+\vspace{5mm}
+I have 5.6% missing data in column age, age class, bodyweight, best 3 squats kg, 
+best 3 benchpress, and best 3 deadlifts. To clean the data, I will get rid of 
+missing data within these columns
+\vspace{5mm}
+
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ipf_lifts <- filter(ipf_lifts, !is.na(age))
+ipf_lifts <- filter(ipf_lifts, !is.na(age_class))
+ipf_lifts <- filter(ipf_lifts, !is.na(bodyweight_kg))
+ipf_lifts <- filter(ipf_lifts, !is.na(best3squat_kg))
+ipf_lifts <- filter(ipf_lifts, !is.na(best3bench_kg))
+ipf_lifts <- filter(ipf_lifts, !is.na(best3deadlift_kg))
+```
+\vspace{5mm}
+Then I will check the data again.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+vis_miss(ipf_lifts)
+```
+
+\vspace{5mm}
+
+I still have some missing data in division, however it is less than .1 %. I will still filter this out
+
+\vspace{5mm}
+
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ipf_lifts <- filter(ipf_lifts, !is.na(division))
+```
+\vspace{5mm}
+And check the data again
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+vis_miss(ipf_lifts)
+```
+\vspace{5mm}
+Now there is no missing data. I will now view the first rows of the dataset to check that everything looks tidy.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+head(ipf_lifts)
+```
+
+**Does gender matter?**
+
+\vspace{5mm}
+Let's first look at the effect of gender on squats applying violin plots
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ggplot(ipf_lifts, aes(x= sex, y= best3squat_kg, fill= sex)) +
+  geom_violin() + 
+  geom_jitter(width=.1, alpha=.5) + stat_summary(fun.data="mean_cl_boot")
+```
+
+\vspace{5mm}
+The averages for women and men for all of these outcomes seem to be slightly 
+similar with men having a slightly higher average than women but also a wider
+spread
+\vspace{5mm}
+I will use the ggplot() function to graph our data. Using the "lm" method, I will 
+generate a linear model (regression line)
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ggplot(ipf_lifts, aes(x = sex, y = best3squat_kg, group = 1)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+\vspace{5mm}
+This visualisation further illustrate an effect of gender on the number of 
+squats completed within this sample.
+\vspace{5mm}
+Let's now see whether number of squats can be predicted by gender. I will first 
+create my model that has one predictor (gender)
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ourmodel_sex <- lm(best3squat_kg ~ sex, data = ipf_lifts)
+```
+\vspace{5mm}
+Then I will create my null model with no predictors for comparison.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ourmodel_sex_0 <- lm(best3squat_kg ~ 1, data = ipf_lifts)
+```
+\vspace{5mm}
+Finally, I will compare our models using the anova() function
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+anova(ourmodel_sex_0, ourmodel_sex)
+```
+\vspace{5mm}
+There seems to be an effect of our model. 
+\vspace{5mm}
+Let's create a plot to check the residuals for our gender model.
+\vspace{5mm}
+
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+hist(residuals(ourmodel_sex))
+```
+\vspace{5mm}
+The residuals look normally distributed. Therefore, I will generate some 
+coefficients, using the summary() function
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+summary(ourmodel_sex)
+```
+
+\vspace{5mm}
+Gender seems to be a strong predictor of the model. Females were our reference 
+category and the intercept (151.48) therefore corresponds to females. SexM (99.69) 
+corresponds to the difference between our reference category and our Males in 
+number of squats, meaning that for every 151.48 squats females do, males do 99.69 more.
+\vspace{5mm}
+I will use the ggplot() function to graph our data. Using the "lm" method, I will 
+generate a linear model (regression line)
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ggplot(ipf_lifts, aes(x = sex, y = best3squat_kg, group = 1)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+\vspace{5mm}
+This visualisation further illustrate that gender has an effect on the number of 
+squats completed within this sample.
+\vspace{20mm}
+
+**Does age matter within the genders?**
+
+
+\vspace{5mm}
+I am also interested in knowing whether there are in-group differences for each
+gender. I will therefore create two new datasets that filter out the data for 
+each gender to be able to look at the differneces occuring within the groups.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ipf_lifts_females <- filter(ipf_lifts, (sex == "F"))
+ipf_lifts_males <- filter(ipf_lifts, (sex == "M"))  
+```
+
+\vspace{5mm}
+Then I will check that the data looks okay for each filtered dataset.
+
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+head(ipf_lifts_females)
+```
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+head(ipf_lifts_males)
+```
+
+\vspace{5mm}
+´
+I will  plot how people of different ages are squatting within each gender, 
+to get a sense of the **shape** of this data. 
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ggplot(
+  ipf_lifts, 
+  aes(x = age, y= best3squat_kg, colour = age_class)
+) +
+  geom_point(show.legend = TRUE, alpha = 0.7) +
+  scale_color_viridis_d() +
+  scale_size(range = c(2, 12)) +
+  labs(x = "Age", y = "Best 3 Squats") + 
+  facet_wrap(~sex) + 
+  labs(title = "Scatterplot of Best 3 Squats for Women and Men")
+```
+
+\vspace{5mm}
+My scatterplot illustrates that both genders seem to have a peak at the age of 25
+and then decline in how much they are able to squat. As we can see the 
+shapes are similar, but the peak is at a lower point for women than for men, which
+corresponds rightfully to my previous gender difference findings.. 
+The higher the plots the more the squats each contestant is able to do.
+\vspace{5mm}
+According to this visual model, both men and women seem peak around the age of 24-34.
+To know whether or not this is true I will run a linear model.
+\vspace{5mm}
+First I will create my models separately for each gender
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ourmodel_women_squat <- lm(best3squat_kg ~ age, data = ipf_lifts_females)
+ourmodel_men_squat <- lm(best3squat_kg ~ age, data = ipf_lifts_males)
+```
+\vspace{5mm}
+Then I will create a null model for each gender
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+model_women_squat_0 <- lm(best3squat_kg ~ 1, data = ipf_lifts_females)
+model_men_squat_0 <- lm(best3squat_kg ~ 1, data = ipf_lifts_males)
+```
+\vspace{5mm}
+
+Then I will compare my models using the anova() function
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+anova(model_women_squat_0, ourmodel_women_squat)
+anova(model_men_squat_0, ourmodel_men_squat)
+```
+\vspace{5mm}
+My ANOVAs suggest the models with all of the predictors are the better models 
+for both women and men.
+\vspace{5mm}
+I will create two histograms to check that my residuals are normally distributed.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+hist(residuals(ourmodel_women_squat))
+```
+
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+hist(residuals(ourmodel_men_squat))
+```
+\vspace{5mm}
+
+For women, the residuals appear slightly skewed, whilst for men there is a perfect 
+normal distribution.
+\vspace{5mm}
+I will create some more plots for the women-data to see whether it is appropriate
+for the model.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+plot(ourmodel_women_squat)
+```
+\vspace{5mm}
+The data seems appropriate. I will now create some coefficients for both datasets 
+using the summary function
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+summary(ourmodel_women_squat)
+```
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+summary(ourmodel_men_squat)
+```
+\vspace{5mm}
+For both men and women there seems to be an effect of age. Specifically, the older
+women get, the number of squats they do decline with .71. The older men get 
+their squat number declines with 1.26. What is also notable is that the intercept
+for men is higher (293.96) than for women (173.41), meaning that even though
+the number of squats they do decline more rapidly with age, they also peak at a
+higher number of squats, which is consistent with our scatterplot
+
+\vspace{5mm}
+Now I want to check the weight distribution on the ages within the squatters of 
+each gender. Seeing as squatters within both genders do the most squats at 25 
+and this declines with age, I am wondering whether the bodyweight of these 
+squatters also decline with age.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ggplot(
+  ipf_lifts, 
+  aes(x = age, y= bodyweight_kg, colour = weight_class_kg)
+) +
+  geom_point(show.legend = TRUE, alpha = 0.7) +
+  scale_color_viridis_d() +
+  scale_size(range = c(2, 12)) +
+  labs(x = "Age", y = "Bodyweight (kg)") + 
+  facet_wrap(~sex) + 
+  labs(title = "Scatterplot of Weight Class for Women and Men")
+```
+\vspace{5mm}
+
+Our scatterplot illustrates that as age decline from just before 25, so does the 
+weight of the squatter. Therefore, I will add this predictor to the linear model.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ourmodel_women_squat_weight <- lm(best3squat_kg ~ age + bodyweight_kg, data = ipf_lifts_females)
+ourmodel_men_squat_weight <- lm(best3squat_kg ~ age + bodyweight_kg, data = ipf_lifts_males)
+```
+\vspace{5mm}
+Then I will compare these with the NULL models using the anova() function.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+anova(model_women_squat_0, ourmodel_women_squat_weight)
+```
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+anova(model_men_squat_0, ourmodel_men_squat_weight)
+```
+\vspace{5mm}
+
+Both anova's suggest the models with the predictors are much stronger than the 
+null models. Then I will again generate some coefficients 
+
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+summary(ourmodel_women_squat_weight)
+```
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+summary(ourmodel_men_squat_weight)
+```
+
+\vspace{5mm}
+The coefficients suggest that for both men and women, age and bodyweight are 
+strong predictors of max squats completed. There was a strong negative 
+relationship here, where the younger the person is, the larger their bodyweight 
+is. This is true for both women and men in this sample.
+\vspace{20mm}
+
+**Does type of equipment people use influence for the number of squats they do?**
+
+\vspace{5mm}
+Now let's look at what type of equipment people use within each gender
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ggplot(
+  ipf_lifts_females,
+  aes(x = age, y= best3squat_kg, colour = equipment)
+) +
+  geom_point(show.legend = FALSE, alpha = 0.7) + facet_wrap(~equipment) +
+  scale_color_viridis_d() +
+  scale_size(range = c(2, 12)) +
+  scale_x_log10() +
+  labs(x = "Age", y = "Best 3 Squats")
+
+```
+\vspace{5mm}
+
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ggplot(
+  ipf_lifts_males,
+  aes(x = age, y= best3squat_kg, colour = equipment)
+) +
+  geom_point(show.legend = FALSE, alpha = 0.7) + facet_wrap(~equipment) +
+  scale_color_viridis_d() +
+  scale_size(range = c(2, 12)) +
+  scale_x_log10() +
+  labs(x = "Age", y = "Best 3 Squats")
+```
+
+\vspace{5mm}
+For women, there seems to be a similar amount of raw and single-ply equipments 
+used, whilst for men, single-ply seems to generally be used more than raw 
+(which is also used a lot). However, a small proportion seems to be using wraps.
+\vspace{5mm}
+I will create a final linear model for these to see whether equipment is also a 
+predictor of number of squats completed.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+ourmodel_women_squat_weight_equip <- lm(best3squat_kg ~ age + bodyweight_kg + equipment, data = ipf_lifts_females)
+ourmodel_men_squat_weight_equip <- lm(best3squat_kg ~ age + bodyweight_kg + equipment, data = ipf_lifts_males)
+```
+\vspace{5mm}
+Then I will compare these with the NULL models using the anova() function.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+anova(model_women_squat_0, ourmodel_women_squat_weight_equip)
+anova(model_men_squat_0, ourmodel_men_squat_weight_equip)
+```
+
+\vspace{5mm}
+Both anova's suggest the models with the predictors are much stronger than the 
+null models.
+\vspace{5mm}
+
+I will create a plot for each model to check their residuals.
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+hist(residuals(ourmodel_women_squat_weight_equip))
+```
+\vspace{5mm}
+
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+hist(residuals(ourmodel_men_squat_weight_equip))
+```
+\vspace{5mm}
+
+Both residual models look slightly skewed to the left. I will create some more 
+plots to see whether the data is appropriate for the models
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+plot(ourmodel_women_squat_weight_equip)
+```
+
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+plot(ourmodel_men_squat_weight_equip)
+```
+
+\vspace{5mm}
+The values for both genders seem to be within cook's distance. Finally, I will
+check for multicollinearity measured by VIF
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+vif(ourmodel_women_squat_weight_equip)
+```
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+vif(ourmodel_men_squat_weight_equip)
+```
+
+\vspace{5mm}
+There seems to be no multicollinearity, suggesting my results are trustworthy
+\vspace{5mm}
+
+Then I will again generate some coefficients 
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+summary(ourmodel_women_squat_weight_equip)
+```
+\vspace{5mm}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+summary(ourmodel_men_squat_weight_equip)
+```
+
+\vspace{5mm}
+These models also suggest equipment matters for the number of squats completed, 
+with 32.7 more squats being completed when using single-ply equipment for women, 
+and 40.6 more squats being completed when using single-ply for men, and 30.8 
+more being completed when using wraps for men.
+
+\newpage
+
+# References
+
+John Fox and Sanford Weisberg (2011). An {R} Companion to Applied Regression, Second Edition. Thousand Oaks CA:
+  Sage. URL: http://socserv.socsci.mcmaster.ca/jfox/Books/Companion
+
+Tierney N (2017). “visdat: Visualising Whole Data Frames.” _JOSS_, *2*(16), 355. doi: 10.21105/joss.00355 (URL:
+http://doi.org/10.21105/joss.00355), <URL: http://dx.doi.org/10.21105/joss.00355>.
+
+Hadley Wickham (2017). tidyverse: Easily Install and Load the 'Tidyverse'. R package version 1.2.1.
+  https://CRAN.R-project.org/package=tidyverse
+  
+H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2016.
+
+Yixuan Qiu (2019). prettydoc: Creating Pretty Documents from R Markdown. R package version 0.3.0.
+  https://CRAN.R-project.org/package=prettydoc
+
+  
